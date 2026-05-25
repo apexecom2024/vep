@@ -34,15 +34,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ user, onNavigate, onOp
   }, [user.uid]);
 
   return (
-    <div className="flex flex-col h-full bg-black text-white p-6">
-      <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => onNavigate('hub')} className="p-2 text-zinc-400 hover:text-white">
+    <div className="flex flex-col h-full bg-black text-white relative">
+      <header className="sticky top-0 z-20 flex items-center gap-4 p-6 bg-black/80 backdrop-blur-md border-b border-zinc-900">
+        <button onClick={() => onNavigate('hub')} className="p-2 text-zinc-400 hover:text-white transition-colors">
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h2 className="text-xl font-bold">History</h2>
       </header>
 
-      <div className="flex-1 overflow-y-auto space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {loading ? (
           <p className="text-zinc-600">Loading...</p>
         ) : conversations.length === 0 ? (

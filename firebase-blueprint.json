@@ -46,12 +46,30 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["taskId", "userId", "title"]
+    },
+    "UserProfile": {
+      "title": "Extended User Configuration",
+      "description": "Assistant personality, voice, and tool preferences.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "voice": { "type": "string" },
+        "language": { "type": "string" },
+        "bossFirstName": { "type": "string" },
+        "behavior": { "type": "string" },
+        "enabledTools": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "Primary user profiles."
+    },
+    "/users/{userId}/config/{configId}": {
+      "schema": "UserProfile",
+      "description": "Configuration documents for the user."
     },
     "/users/{userId}/conversations/{conversationId}": {
       "schema": "Conversation",

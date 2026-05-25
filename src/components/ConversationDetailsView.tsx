@@ -41,18 +41,20 @@ export const ConversationDetailsView: React.FC<ConversationDetailsViewProps> = (
   }, [user.uid, conversationId]);
 
   return (
-    <div className="flex flex-col h-full bg-black text-white p-6">
-      <header className="flex items-center gap-4 mb-8">
-        <button onClick={() => onNavigate('history')} className="p-2 text-zinc-400 hover:text-white">
+    <div className="flex flex-col h-full bg-black text-white relative">
+      <header className="sticky top-0 z-20 flex items-center gap-4 p-6 bg-black/80 backdrop-blur-md border-b border-zinc-900">
+        <button onClick={() => onNavigate('history')} className="p-2 text-zinc-400 hover:text-white transition-colors">
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h2 className="text-xl font-bold">Conversation</h2>
       </header>
 
       {loading ? (
-        <p className="text-zinc-600">Loading...</p>
+        <div className="flex-1 p-6">
+          <p className="text-zinc-600">Loading...</p>
+        </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((msg: any) => (
             <div key={msg.id} className={`p-4 rounded-2xl ${msg.role === 'user' ? 'bg-zinc-800 self-end' : 'bg-lime-900/20'}`}>
               <p className="text-sm text-zinc-200">{msg.content}</p>

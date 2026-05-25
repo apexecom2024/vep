@@ -8,6 +8,15 @@ export interface User {
   accessToken?: string;
 }
 
+export interface UserProfile {
+  name: string;
+  voice: string;
+  language: string;
+  bossFirstName: string;
+  behavior: string;
+  enabledTools: string[];
+}
+
 export interface BeatriceMessage {
   type: 'user' | 'agent' | 'system';
   content: string;

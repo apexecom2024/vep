@@ -7,10 +7,9 @@ import { ComputerView } from './components/ComputerView';
 import { ProfileView } from './components/ProfileView';
 import { HistoryView } from './components/HistoryView';
 import { ConversationDetailsView } from './components/ConversationDetailsView';
-import { initAuth, signIn, logout, createConversation, saveConversationMessage } from './lib/firebase';
+import { initAuth, signIn, logout, createConversation, saveConversationMessage, getUserProfile } from './lib/firebase';
 import { ViewState, User } from './types';
 import { pcmToBase64, base64ToPcm, AudioQueue } from './lib/audio';
-import processorUrl from './lib/beatrice-processor.js?url';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('auth');
@@ -25,6 +24,22 @@ export default function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   
+  const syncProfileToLocal = async (uid: string) => {
+    try {
+      const profile = await getUserProfile(uid);
+      if (profile) {
+        localStorage.setItem('beatrice-name', profile.name);
+        localStorage.setItem('beatrice-voice', profile.voice);
+        localStorage.setItem('beatrice-language', profile.language);
+        localStorage.setItem('beatrice-boss-name', profile.bossFirstName);
+        localStorage.setItem('beatrice-behavior', profile.behavior);
+        localStorage.setItem('beatrice-tools', JSON.stringify(profile.enabledTools));
+      }
+    } catch (error) {
+      console.error('Failed to sync profile:', error);
+    }
+  };
+
   useEffect(() => {
     if (currentConversationId && agentResponse && user?.uid) {
        saveConversationMessage(user.uid, currentConversationId, transcript, agentResponse);
@@ -67,8 +82,9 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = initAuth(
-      (u) => {
+      async (u) => {
         setUser(u);
+        await syncProfileToLocal(u.uid);
         setView('hub');
       },
       () => {
@@ -85,6 +101,7 @@ export default function App() {
       const result = await signIn();
       if (result) {
         setUser(result.user);
+        await syncProfileToLocal(result.user.uid);
         setView('hub');
       }
     } catch (err) {
@@ -121,8 +138,11 @@ export default function App() {
       const wsUrl = `${protocol}//${window.location.host}/ws/live`;
       wsRef.current = new WebSocket(wsUrl);
 
-      audioCtxRef.current = new AudioContext({ sampleRate: 16000 });
-      await audioCtxRef.current.audioWorklet.addModule(processorUrl);
+      audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
+      if (audioCtxRef.current.state === 'suspended') {
+        await audioCtxRef.current.resume();
+      }
+      await audioCtxRef.current.audioWorklet.addModule('/beatrice-processor.js');
       audioQueueRef.current = new AudioQueue(audioCtxRef.current);
       outputAnalyserRef.current = audioCtxRef.current.createAnalyser();
       outputAnalyserRef.current.connect(audioCtxRef.current.destination);
@@ -187,10 +207,16 @@ export default function App() {
       
       workletNode.port.onmessage = (event) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-          const pcm = pcmToBase64(event.data);
+          const pcm = pcmToBase64(new Float32Array(event.data));
           wsRef.current.send(JSON.stringify({ audio: pcm }));
         }
       };
+      
+      // Connect to silent destination to ensure the worklet stays active
+      const silentGain = audioCtxRef.current.createGain();
+      silentGain.gain.value = 0;
+      workletNode.connect(silentGain);
+      silentGain.connect(audioCtxRef.current.destination);
       
       inputAnalyserRef.current.connect(workletNode);
 

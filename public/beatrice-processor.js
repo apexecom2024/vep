@@ -15,17 +15,23 @@ class BeatriceProcessor extends AudioWorkletProcessor {
     const input = inputs[0];
     if (input.length > 0 && input[0].length > 0) {
       const channel = input[0];
-      const filtered = new Float32Array(channel.length);
-      for (let i = 0; i < channel.length; i++) {
-        const x = channel[i];
-        // Biquad filter: y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
-        const y = this.b0 * x + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
-        
-        this.x2 = this.x1; this.x1 = x;
-        this.y2 = this.y1; this.y1 = y;
-        filtered[i] = y;
+      
+      // Downsample from 24kHz to 16kHz (1.5:1 ratio)
+      // Input: [0, 1, 2, 3, 4, 5] -> Output: [0, (1+2)/2, 3, (4+5)/2]
+      const outputLength = Math.floor((channel.length * 2) / 3);
+      const outputData = new Float32Array(outputLength);
+      
+      let outIdx = 0;
+      for (let i = 0; i < channel.length - 1; i += 3) {
+        if (outIdx < outputLength) {
+          outputData[outIdx++] = channel[i];
+        }
+        if (outIdx < outputLength && i + 2 < channel.length) {
+          outputData[outIdx++] = (channel[i+1] + channel[i+2]) / 2;
+        }
       }
-      this.port.postMessage(filtered);
+      
+      this.port.postMessage(outputData);
     }
     return true;
   }

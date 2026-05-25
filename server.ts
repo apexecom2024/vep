@@ -141,7 +141,9 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
                 }
                 
                 // User transcription
-                const userTranscript = msg.serverContent?.clientContent?.turns?.[0]?.parts?.[0]?.audioTranscription?.text;
+                const userTranscript = msg.serverContent?.clientContent?.turns?.[0]?.parts?.[0]?.audioTranscription?.text 
+                  || msg.serverContent?.audioTranscription?.text;
+
                 if (userTranscript) {
                   ws.send(JSON.stringify({ type: 'transcript', data: userTranscript }));
                 }

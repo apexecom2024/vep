@@ -1,15 +1,16 @@
 /// <reference types="vite/client" />
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { getFirestore, doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { getDatabase, ref, push, set } from 'firebase/database';
+import { getFirestore, doc, setDoc, collection, serverTimestamp, getDoc } from 'firebase/firestore';
+import { getDatabase, ref, push, set, get, child, serverTimestamp as rtdbTimestamp } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
-import { User } from '../types';
+import { User, UserProfile } from '../types';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  databaseURL: "https://gala-69e93-default-rtdb.europe-west1.firebasedatabase.app/",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
@@ -95,6 +96,41 @@ export const logout = async () => {
   cachedAccessToken = null;
 };
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 const mapFirebaseUser = (user: FirebaseUser, token?: string): User => ({
   uid: user.uid,
   email: user.email,
@@ -102,6 +138,33 @@ const mapFirebaseUser = (user: FirebaseUser, token?: string): User => ({
   photoURL: user.photoURL,
   accessToken: token
 });
+
+export const saveUserProfile = async (userId: string, profile: UserProfile) => {
+  const path = `users/${userId}/config/profile`;
+  try {
+    await set(ref(rtdb, path), {
+      ...profile,
+      updatedAt: rtdbTimestamp()
+    });
+  } catch (error) {
+    console.error('RTDB Save Profile Error:', error);
+    throw error;
+  }
+};
+
+export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+  const path = `users/${userId}/config/profile`;
+  try {
+    const snapshot = await get(ref(rtdb, path));
+    if (snapshot.exists()) {
+      return snapshot.val() as UserProfile;
+    }
+    return null;
+  } catch (error) {
+    console.error('RTDB Get Profile Error:', error);
+    throw error;
+  }
+};
 
 export const createConversation = async (userId: string, type: 'voice' | 'video' | 'text', summary: string) => {
   const conversationsRef = ref(rtdb, `users/${userId}/conversations`);

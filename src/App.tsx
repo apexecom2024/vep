@@ -218,6 +218,7 @@ export default function App() {
             onNavigate={setView} 
             isActive={isActive} 
             onToggleActive={() => setIsActive(!isActive)} 
+            inputVolume={inputVolume}
           />
         );
       case 'computer':

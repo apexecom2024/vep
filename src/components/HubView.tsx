@@ -39,15 +39,17 @@ export const HubView: React.FC<HubViewProps> = ({
             {isActive ? 'Beatrice is listening...' : 'Tap Beatrice to begin'}
           </p>
           
-          <div className="mt-8 min-h-[100px] flex flex-col gap-4">
+          <div className="mt-8 h-[160px] flex flex-col gap-4 border-t border-zinc-800 pt-4 overflow-y-auto" ref={(el) => {
+            if (el) el.scrollTop = el.scrollHeight;
+          }}>
              {transcript && (
-               <div className="animate-in fade-in slide-in-from-bottom-2">
+               <div className="animate-in fade-in slide-in-from-bottom-1">
                  <p className="text-zinc-500 text-xs uppercase tracking-tighter mb-1">You</p>
                  <p className="text-white text-lg font-medium leading-tight">{transcript}</p>
                </div>
              )}
              {agentResponse && (
-               <div className="animate-in fade-in slide-in-from-bottom-2 delay-150">
+               <div className="animate-in fade-in slide-in-from-bottom-1 delay-150">
                  <p className="text-lime-500 text-xs uppercase tracking-tighter mb-1">Beatrice</p>
                  <p className="text-lime-400 text-lg font-medium leading-tight">{agentResponse}</p>
                </div>
@@ -68,8 +70,8 @@ export const HubView: React.FC<HubViewProps> = ({
                 <motion.div
                   key={i}
                   className="w-1 bg-black/60 rounded-sm"
-                  animate={{ height: [4, 12, 4] }}
-                  transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
+                  animate={{ height: Math.max(4, 4 + inputVolume * 0.5) }}
+                  transition={{ duration: 0.1, ease: "linear" }}
                 />
               ))}
             </div>
@@ -78,7 +80,7 @@ export const HubView: React.FC<HubViewProps> = ({
         </button>
         <button 
           onClick={() => onNavigate('video')}
-          className="bg-zinc-800 py-4 rounded-full font-bold text-sm"
+          className="bg-lime-400 text-black py-4 px-6 rounded-xl font-bold text-sm"
         >
           Video
         </button>

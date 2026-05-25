@@ -7,9 +7,10 @@ interface VideoViewProps {
   onNavigate: (view: ViewState) => void;
   isActive: boolean;
   onToggleActive: () => void;
+  inputVolume: number;
 }
 
-export const VideoView: React.FC<VideoViewProps> = ({ onNavigate, isActive, onToggleActive }) => {
+export const VideoView: React.FC<VideoViewProps> = ({ onNavigate, isActive, onToggleActive, inputVolume }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isCameraOff, setIsCameraOff] = useState(false);
@@ -97,8 +98,8 @@ export const VideoView: React.FC<VideoViewProps> = ({ onNavigate, isActive, onTo
                     <motion.div
                         key={i}
                         className="w-1 bg-rose-500 rounded-sm"
-                        animate={{ height: [4, 16, 4] }}
-                        transition={{ duration: 0.5 + i * 0.1, repeat: Infinity }}
+                        animate={{ height: Math.max(4, 4 + inputVolume * 0.5) }}
+                        transition={{ duration: 0.1, ease: "linear" }}
                     />
                 ))}
               </div>
@@ -113,7 +114,7 @@ export const VideoView: React.FC<VideoViewProps> = ({ onNavigate, isActive, onTo
         </button>
         <button 
           onClick={() => setIsCameraOff(prev => !prev)}
-          className={`flex-1 max-w-[160px] py-3.5 px-6 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg ${isCameraOff ? 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-lime-400' : 'bg-lime-400 text-black hover:bg-lime-300'}`}
+          className={`flex-1 max-w-[160px] py-3.5 px-6 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg ${isCameraOff ? 'bg-lime-400/10 text-lime-400 border border-lime-400/30 hover:bg-lime-400/20' : 'bg-lime-400 text-black hover:bg-lime-300'}`}
         >
           <Video className="w-5 h-5" />
           <span>{isCameraOff ? 'Video Off' : 'Video On'}</span>

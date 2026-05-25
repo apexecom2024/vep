@@ -15,6 +15,7 @@ export interface UserProfile {
   bossFirstName: string;
   behavior: string;
   enabledTools: string[];
+  speakFirstWithNews: boolean;
 }
 
 export interface BeatriceMessage {

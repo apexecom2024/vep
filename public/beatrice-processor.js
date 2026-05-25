@@ -11,8 +11,13 @@ class BeatriceProcessor extends AudioWorkletProcessor {
     this.y1 = 0; this.y2 = 0;
     
     // VAD parameters
-    this.vadThreshold = 0.005; // RMS threshold
-    this.hangoverDuration = 20; // chunks (~250ms at 128 samples/chunk)
+    this.vadThreshold = 0.005; // Initial RMS threshold
+    this.minThreshold = 0.002;
+    this.maxThreshold = 0.05;
+    this.noiseFloor = 0.005;
+    this.alpha = 0.01; // Noise floor smoothing
+
+    this.hangoverDuration = 40; // ~500ms grace period to catch short words/replies
     this.hangoverCount = 0;
     this.isSpeaking = false;
   }
@@ -29,6 +34,14 @@ class BeatriceProcessor extends AudioWorkletProcessor {
       }
       const rms = Math.sqrt(sumSquares / channel.length);
       
+      // Adaptive Noise Floor
+      if (rms < this.noiseFloor) {
+        this.noiseFloor = this.noiseFloor * (1 - this.alpha) + rms * this.alpha;
+      } else {
+        this.noiseFloor = this.noiseFloor * (1 - this.alpha * 0.1) + rms * (this.alpha * 0.1);
+      }
+      this.vadThreshold = Math.max(this.minThreshold, Math.min(this.maxThreshold, this.noiseFloor * 2.5));
+
       // Smooth VAD logic
       const wasSpeaking = this.isSpeaking;
       if (rms > this.vadThreshold) {
@@ -46,8 +59,10 @@ class BeatriceProcessor extends AudioWorkletProcessor {
         this.port.postMessage({ type: 'vad', isSpeaking: this.isSpeaking });
       }
 
-      // If not speaking, send zeroed audio or skip (depending on backend expectation)
-      if (!this.isSpeaking) {
+      // We always send audio metadata or empty packets if needed, 
+      // but to keep the socket alive and session active during words like "yes/no", 
+      // we rely on the hangover count.
+      if (!this.isSpeaking && this.hangoverCount === 0) {
         return true; 
       }
       

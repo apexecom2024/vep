@@ -19,6 +19,8 @@ export default function App() {
   const [transcript, setTranscript] = useState('');
   const [agentResponse, setAgentResponse] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [inputVolume, setInputVolume] = useState(0);
   const [outputVolume, setOutputVolume] = useState(0);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -154,6 +156,7 @@ export default function App() {
           language: localStorage.getItem('beatrice-language'),
           bossName: localStorage.getItem('beatrice-boss-name'),
           behavior: localStorage.getItem('beatrice-behavior'),
+          speakFirstWithNews: JSON.parse(localStorage.getItem('beatrice-news-enabled') || 'false'),
         };
         wsRef.current?.send(JSON.stringify({ type: 'start', config }));
       };
@@ -165,11 +168,14 @@ export default function App() {
         }
         if (msg.type === 'text') {
            setIsProcessing(false);
-           setAgentResponse(msg.data);
+           setAgentResponse(prev => prev + ' ' + msg.data);
         }
         if (msg.type === 'transcript') {
            setIsProcessing(true);
            setTranscript(msg.data);
+           // If user starts talking, they might be interrupting
+           audioQueueRef.current?.clear();
+           setAgentResponse('');
 
            if (!currentConversationId && user?.uid) {
              (async () => {
@@ -219,12 +225,15 @@ export default function App() {
       
       workletNode.port.onmessage = (event) => {
         const msg = event.data;
-        if (msg.type === 'vad' && msg.isSpeaking) {
-          // Immediate yield on user speech
-          audioQueueRef.current?.clear();
+        if (msg.type === 'vad') {
+          setIsSpeaking(msg.isSpeaking);
+          if (msg.isSpeaking) {
+            // Immediate yield on user speech
+            audioQueueRef.current?.clear();
+          }
         }
         
-        if (msg.type === 'audio' && wsRef.current?.readyState === WebSocket.OPEN) {
+        if (msg.type === 'audio' && wsRef.current?.readyState === WebSocket.OPEN && !isMuted) {
           const pcm = pcmToBase64(new Float32Array(msg.data));
           wsRef.current.send(JSON.stringify({ audio: pcm }));
         }
@@ -272,6 +281,9 @@ export default function App() {
             agentResponse={agentResponse}
             inputVolume={inputVolume}
             outputVolume={outputVolume}
+            isMuted={isMuted}
+            isSpeaking={isSpeaking}
+            onToggleMute={() => setIsMuted(!isMuted)}
           />
         );
       case 'video':

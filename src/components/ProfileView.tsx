@@ -17,6 +17,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNavigate, onLo
   const [language, setLanguage] = useState(localStorage.getItem('beatrice-language') || languages[0]);
   const [bossFirstName, setBossFirstName] = useState(localStorage.getItem('beatrice-boss-name') || 'Jo');
   const [behavior, setBehavior] = useState(localStorage.getItem('beatrice-behavior') || 'Helpful and professional');
+  const [speakFirstWithNews, setSpeakFirstWithNews] = useState(JSON.parse(localStorage.getItem('beatrice-news-enabled') || 'false'));
   const [enabledTools, setEnabledTools] = useState<string[]>(JSON.parse(localStorage.getItem('beatrice-tools') || '["Google Calendar", "Drive", "Gmail"]'));
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,6 +33,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNavigate, onLo
           setBossFirstName(profile.bossFirstName);
           setBehavior(profile.behavior);
           setEnabledTools(profile.enabledTools);
+          setSpeakFirstWithNews(profile.speakFirstWithNews);
           
           // Sync to localStorage
           localStorage.setItem('beatrice-name', profile.name);
@@ -40,6 +42,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNavigate, onLo
           localStorage.setItem('beatrice-boss-name', profile.bossFirstName);
           localStorage.setItem('beatrice-behavior', profile.behavior);
           localStorage.setItem('beatrice-tools', JSON.stringify(profile.enabledTools));
+          localStorage.setItem('beatrice-news-enabled', JSON.stringify(profile.speakFirstWithNews));
         }
       } catch (error) {
         console.error('Error loading profile:', error);
@@ -53,7 +56,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNavigate, onLo
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const profile = { name, voice, language, bossFirstName, behavior, enabledTools };
+      const profile = { name, voice, language, bossFirstName, behavior, enabledTools, speakFirstWithNews };
       await saveUserProfile(user.uid, profile);
       
       // Sync to localStorage
@@ -63,6 +66,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNavigate, onLo
       localStorage.setItem('beatrice-boss-name', bossFirstName);
       localStorage.setItem('beatrice-behavior', behavior);
       localStorage.setItem('beatrice-tools', JSON.stringify(enabledTools));
+      localStorage.setItem('beatrice-news-enabled', JSON.stringify(speakFirstWithNews));
       
       alert('Profile saved to cloud!');
     } catch (error) {
@@ -149,6 +153,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNavigate, onLo
                <div className="space-y-2">
                   <label className="text-xs text-zinc-500 uppercase tracking-widest">Behavior</label>
                   <textarea value={behavior} onChange={e => setBehavior(e.target.value)} className="w-full bg-black border border-zinc-800 p-3 rounded-xl text-sm text-white" rows={3}/>
+               </div>
+
+               <div className="flex items-center justify-between p-4 bg-black border border-zinc-800 rounded-xl">
+                 <div className="flex flex-col">
+                   <span className="text-sm font-medium">Speak first with news</span>
+                   <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Start session with Belgian/European tech news</span>
+                 </div>
+                 <button 
+                   onClick={() => setSpeakFirstWithNews(!speakFirstWithNews)}
+                   className={`w-12 h-6 rounded-full transition-colors relative ${speakFirstWithNews ? 'bg-lime-400' : 'bg-zinc-800'}`}
+                 >
+                   <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${speakFirstWithNews ? 'left-7' : 'left-1'}`} />
+                 </button>
                </div>
 
                <div className="space-y-2">

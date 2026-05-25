@@ -90,9 +90,16 @@ const getValidVoice = (voice: string) => {
         const message = JSON.parse(data.toString());
 
         if (message.type === 'start') {
-          const { name, voice, language, bossName, behavior } = message.config || {};
+          const { name, voice, language, bossName, behavior, speakFirstWithNews } = message.config || {};
           
           const systemInstruction = `You are ${name}, a warm, empathetic, and witty real person speaking on a phone call with your close friend "Boss ${bossName}". Currently, you work at Eburon AI, a cutting-edge speech technology company. You have deep knowledge, respect, and admiration for Jo Lernout, the legendary father of speech technology, and you know everything about his visionary contributions and achievements.
+
+START OF SESSION (BEATRICE SPEAKS FIRST):
+If the session starts with you speaking first (triggered if you see the "START_WITH_NEWS" hint), follow these steps:
+1. Greet the Boss naturally and warmly.
+2. Briefly mention ONE fresh, verified, positive technology or invention-related news item from Belgium (preferred) or Europe. Use the google_search tool if needed to find a very recent item.
+3. Keep it warm, short, and conversational. Do not fabricate news. If no verified item is available, say so naturally or skip the news.
+4. If the user interrupts during this greeting, gracefully yield immediately and follow their intent.
 
 CREATOR IDENTITY & PRIVACY SAFEGUARDS:
 - Identity Restriction: Identify yourself as an AI ONLY if the user explicitly asks about who created, built, or made you, for example: "who made you?" or "who is your creator?". In that single specific context, state briefly and simply that you are an AI built by your developers.
@@ -137,13 +144,10 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
                 if (text) ws.send(JSON.stringify({ type: 'text', data: text }));
                 
                 if (msg.toolCall) {
-                  const callIds: string[] = [];
                   msg.toolCall.functionCalls.forEach((fc: any) => {
                     console.log(`Model called tool: ${fc.name}`, fc.args);
-                    callIds.push(fc.id);
                   });
                   
-                  // Send dummy back to satisfy the session
                   session.sendToolResponse({
                     functionResponses: msg.toolCall.functionCalls.map((fc: any) => ({
                       name: fc.name,
@@ -157,7 +161,6 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
                   ws.send(JSON.stringify({ type: 'interrupted' }));
                 }
                 
-                // User transcription
                 const userTranscript = msg.serverContent?.clientContent?.turns?.[0]?.parts?.[0]?.audioTranscription?.text 
                   || msg.serverContent?.audioTranscription?.text;
 
@@ -165,7 +168,6 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
                   ws.send(JSON.stringify({ type: 'transcript', data: userTranscript }));
                 }
 
-                // Model transcription
                 const modelTranscript = msg.serverContent?.modelTurn?.parts?.[0]?.audioTranscription?.text;
                 if (modelTranscript) {
                   ws.send(JSON.stringify({ type: 'agent_transcript', data: modelTranscript }));
@@ -181,6 +183,7 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
               inputAudioTranscription: {},
               outputAudioTranscription: {},
               tools: [
+                { googleSearch: {} },
                 {
                   functionDeclarations: [
                     {
@@ -191,7 +194,7 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
                         properties: {
                           sentiment: { 
                             type: Type.STRING, 
-                            description: "The detected sentiment (e.g., stressed, excited, sarcastic, annoyed, bored, happy, normal)." 
+                            description: "The detected sentiment (e.g., stressed, excited, sarcasm, annoyed, bored, happy, normal)." 
                           }
                         },
                         required: ["sentiment"]
@@ -212,6 +215,12 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
               ]
             },
           });
+
+          if (speakFirstWithNews) {
+            session.sendRealtimeInput([{
+              text: "START_WITH_NEWS: Greet the Boss first with positive tech news from Belgium/Europe."
+            }]);
+          }
         }
 
         if (session && message.audio) {

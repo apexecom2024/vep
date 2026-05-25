@@ -26,16 +26,27 @@ export default function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   
+  const getSafeStorage = (key: string, fallback: any) => {
+    const item = localStorage.getItem(key);
+    if (!item || item === 'undefined' || item === null) return fallback;
+    try {
+      return JSON.parse(item);
+    } catch (e) {
+      return fallback;
+    }
+  };
+
   const syncProfileToLocal = async (uid: string) => {
     try {
       const profile = await getUserProfile(uid);
       if (profile) {
-        localStorage.setItem('beatrice-name', profile.name);
-        localStorage.setItem('beatrice-voice', profile.voice);
-        localStorage.setItem('beatrice-language', profile.language);
-        localStorage.setItem('beatrice-boss-name', profile.bossFirstName);
-        localStorage.setItem('beatrice-behavior', profile.behavior);
-        localStorage.setItem('beatrice-tools', JSON.stringify(profile.enabledTools));
+        if (profile.name) localStorage.setItem('beatrice-name', profile.name);
+        if (profile.voice) localStorage.setItem('beatrice-voice', profile.voice);
+        if (profile.language) localStorage.setItem('beatrice-language', profile.language);
+        if (profile.bossFirstName) localStorage.setItem('beatrice-boss-name', profile.bossFirstName);
+        if (profile.behavior) localStorage.setItem('beatrice-behavior', profile.behavior);
+        if (profile.enabledTools) localStorage.setItem('beatrice-tools', JSON.stringify(profile.enabledTools));
+        if (profile.speakFirstWithNews !== undefined) localStorage.setItem('beatrice-news-enabled', JSON.stringify(profile.speakFirstWithNews));
       }
     } catch (error) {
       console.error('Failed to sync profile:', error);
@@ -124,6 +135,11 @@ export default function App() {
     setView('details');
   };
 
+  const isMutedRef = useRef(isMuted);
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
   // Live Assistant Logic
   useEffect(() => {
     if (isActive) {
@@ -156,7 +172,7 @@ export default function App() {
           language: localStorage.getItem('beatrice-language'),
           bossName: localStorage.getItem('beatrice-boss-name'),
           behavior: localStorage.getItem('beatrice-behavior'),
-          speakFirstWithNews: JSON.parse(localStorage.getItem('beatrice-news-enabled') || 'false'),
+          speakFirstWithNews: getSafeStorage('beatrice-news-enabled', false),
         };
         wsRef.current?.send(JSON.stringify({ type: 'start', config }));
       };
@@ -233,7 +249,7 @@ export default function App() {
           }
         }
         
-        if (msg.type === 'audio' && wsRef.current?.readyState === WebSocket.OPEN && !isMuted) {
+        if (msg.type === 'audio' && wsRef.current?.readyState === WebSocket.OPEN && !isMutedRef.current) {
           const pcm = pcmToBase64(new Float32Array(msg.data));
           wsRef.current.send(JSON.stringify({ audio: pcm }));
         }

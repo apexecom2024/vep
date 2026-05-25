@@ -12,13 +12,23 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNavigate, onLogout }) => {
+  const getSafeStorage = (key: string, fallback: any) => {
+    const item = localStorage.getItem(key);
+    if (!item || item === 'undefined') return fallback;
+    try {
+      return JSON.parse(item);
+    } catch (e) {
+      return fallback;
+    }
+  };
+
   const [name, setName] = useState(localStorage.getItem('beatrice-name') || 'Beatrice');
   const [voice, setVoice] = useState(localStorage.getItem('beatrice-voice') || superheroVoices[0]);
   const [language, setLanguage] = useState(localStorage.getItem('beatrice-language') || languages[0]);
   const [bossFirstName, setBossFirstName] = useState(localStorage.getItem('beatrice-boss-name') || 'Jo');
   const [behavior, setBehavior] = useState(localStorage.getItem('beatrice-behavior') || 'Helpful and professional');
-  const [speakFirstWithNews, setSpeakFirstWithNews] = useState(JSON.parse(localStorage.getItem('beatrice-news-enabled') || 'false'));
-  const [enabledTools, setEnabledTools] = useState<string[]>(JSON.parse(localStorage.getItem('beatrice-tools') || '["Google Calendar", "Drive", "Gmail"]'));
+  const [speakFirstWithNews, setSpeakFirstWithNews] = useState(getSafeStorage('beatrice-news-enabled', false));
+  const [enabledTools, setEnabledTools] = useState<string[]>(getSafeStorage('beatrice-tools', ['Google Calendar', 'Drive', 'Gmail']));
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 

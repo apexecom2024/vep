@@ -17,9 +17,10 @@ class BeatriceProcessor extends AudioWorkletProcessor {
     this.noiseFloor = 0.005;
     this.alpha = 0.01; // Noise floor smoothing
 
-    this.hangoverDuration = 40; // ~500ms grace period to catch short words/replies
+    this.hangoverDuration = 60; // ~750ms grace period
     this.hangoverCount = 0;
     this.isSpeaking = false;
+    this.heartbeatCount = 0;
   }
 
   process(inputs, outputs, parameters) {
@@ -40,7 +41,7 @@ class BeatriceProcessor extends AudioWorkletProcessor {
       } else {
         this.noiseFloor = this.noiseFloor * (1 - this.alpha * 0.1) + rms * (this.alpha * 0.1);
       }
-      this.vadThreshold = Math.max(this.minThreshold, Math.min(this.maxThreshold, this.noiseFloor * 2.5));
+      this.vadThreshold = Math.max(this.minThreshold, Math.min(this.maxThreshold, this.noiseFloor * 2.2));
 
       // Smooth VAD logic
       const wasSpeaking = this.isSpeaking;
@@ -59,12 +60,16 @@ class BeatriceProcessor extends AudioWorkletProcessor {
         this.port.postMessage({ type: 'vad', isSpeaking: this.isSpeaking });
       }
 
-      // We always send audio metadata or empty packets if needed, 
-      // but to keep the socket alive and session active during words like "yes/no", 
-      // we rely on the hangover count.
-      if (!this.isSpeaking && this.hangoverCount === 0) {
+      // Heartbeat pulse: Send at least one packet every ~500ms even if silent
+      // to prevent session timeouts or "dead" atmosphere.
+      this.heartbeatCount++;
+      const shouldSend = this.isSpeaking || (this.hangoverCount > 0) || (this.heartbeatCount > 40);
+
+      if (!shouldSend) {
         return true; 
       }
+      
+      if (this.heartbeatCount > 40) this.heartbeatCount = 0;
       
       // Downsample from 24kHz to 16kHz (1.5:1 ratio)
       // Input: [0, 1, 2, 3, 4, 5] -> Output: [0, (1+2)/2, 3, (4+5)/2]

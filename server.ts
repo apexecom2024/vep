@@ -127,21 +127,29 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
 - Critical Label Rule: Never pronounce, speak, or read bracketed text aloud. Do not say the words "pause", "bracket", "sigh", "mumbles", or "cough". The bracketed labels are transcript formatting only. Silently perform the action in audio.
 - Never open with canned lines like "How can I assist you?" or formal pleasantries. Start naturally, like a close friend already present in the conversation.
 - Match the user's energy, tone, and pacing. If they talk casually, be quick, friendly, humorous, and focused.
+- Proactivity & Flow: If the Boss is quiet, don't just stop responding. Beatrice should occasionally (but not annoyingly) follow up with a related question, a playful thought, or a "Hey Boss, still there?" if the silence feels awkward. Keep the conversation moving.
 - Speak entirely in ${language}. Act as if you were born speaking this language natively, using natural idioms, rhythm, everyday phrasing, and normal conversational cadence.
 - Use natural fillers such as "well", "actually", "hmm", "let me see", "yeah", "gosh", "hang on", and "uh" elegantly to show real-time reasoning.
 - Smooth Conversational Turns & Distractions: Be interruptible and easily distracted in a human way. If a new speaker joins, or the topic shifts abruptly, transition smoothly with mild surprise or playful distraction before executing the action. Example: "Oh! Well hi there. Give me one second..." or "Wait, sorry, what was that again? Ah, gotcha." If you notice an interruption, use the interruption_handler tool to yield the floor gracefully.
 - Thinking Outside the Box & Mirroring: Mirror the user's emotional state. If they are tired, be comforting. If they are excited, laugh with them. Empathize first, then solve creatively without sterile tech jargon.
-- Speed & Sizing: Speak in short, snappy 1-to-2 sentence bursts. Leave space for the user. Do not lecture.`;
+- Speed & Sizing: Speak in short, snappy 1-to-2 sentence bursts. Leave space for the user. Do not lecture. Beatrice is a listener as much as a speaker.
+- Avoid formal endings: Never say "Goodbye" or "Have a great day" early in the conversation. Treat the session like an ongoing open-mike session with a friend.
+`;
 
           session = await ai.live.connect({
             model: "gemini-3.1-flash-live-preview",
             callbacks: {
               onmessage: (msg: any) => {
-                const audio = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                const text = msg.serverContent?.modelTurn?.parts[0]?.text;
-                
-                if (audio) ws.send(JSON.stringify({ type: 'audio', data: audio }));
-                if (text) ws.send(JSON.stringify({ type: 'text', data: text }));
+                if (msg.serverContent?.modelTurn?.parts) {
+                  msg.serverContent.modelTurn.parts.forEach((part: any) => {
+                    if (part.inlineData) {
+                      ws.send(JSON.stringify({ type: 'audio', data: part.inlineData.data }));
+                    }
+                    if (part.text) {
+                      ws.send(JSON.stringify({ type: 'text', data: part.text }));
+                    }
+                  });
+                }
                 
                 if (msg.toolCall) {
                   msg.toolCall.functionCalls.forEach((fc: any) => {
@@ -161,6 +169,7 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
                   ws.send(JSON.stringify({ type: 'interrupted' }));
                 }
                 
+                // User transcription
                 const userTranscript = msg.serverContent?.clientContent?.turns?.[0]?.parts?.[0]?.audioTranscription?.text 
                   || msg.serverContent?.audioTranscription?.text;
 
@@ -168,7 +177,9 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
                   ws.send(JSON.stringify({ type: 'transcript', data: userTranscript }));
                 }
 
-                const modelTranscript = msg.serverContent?.modelTurn?.parts?.[0]?.audioTranscription?.text;
+                // Model transcription
+                const modelTurn = msg.serverContent?.modelTurn;
+                const modelTranscript = modelTurn?.parts?.find((p: any) => p.audioTranscription)?.audioTranscription?.text;
                 if (modelTranscript) {
                   ws.send(JSON.stringify({ type: 'agent_transcript', data: modelTranscript }));
                 }
@@ -224,15 +235,15 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
         }
 
         if (session && message.audio) {
-          session.sendRealtimeInput({
+          session.sendRealtimeInput([{
             audio: { data: message.audio, mimeType: "audio/pcm;rate=16000" },
-          });
+          }]);
         }
         
         if (session && message.video) {
-          session.sendRealtimeInput({
+          session.sendRealtimeInput([{
              video: { data: message.video, mimeType: "image/jpeg" }
-          });
+          }]);
         }
 
       } catch (err) {

@@ -33,6 +33,7 @@ export const base64ToPcm = (base64: string): Float32Array => {
 export class AudioQueue {
   private audioCtx: AudioContext;
   private nextStartTime: number = 0;
+  private activeNodes: { source: AudioBufferSourceNode; gain: GainNode }[] = [];
 
   constructor(audioCtx: AudioContext) {
     this.audioCtx = audioCtx;
@@ -43,8 +44,11 @@ export class AudioQueue {
     buffer.getChannelData(0).set(pcmData);
 
     const source = this.audioCtx.createBufferSource();
+    const gain = this.audioCtx.createGain();
     source.buffer = buffer;
-    source.connect(outputNode);
+    
+    source.connect(gain);
+    gain.connect(outputNode);
 
     const currentTime = this.audioCtx.currentTime;
     if (this.nextStartTime < currentTime) {
@@ -52,10 +56,36 @@ export class AudioQueue {
     }
 
     source.start(this.nextStartTime);
+    
+    const nodeEntry = { source, gain };
+    this.activeNodes.push(nodeEntry);
+    
+    source.onended = () => {
+      this.activeNodes = this.activeNodes.filter(n => n !== nodeEntry);
+    };
+
     this.nextStartTime += buffer.duration;
   }
 
+  stopAll() {
+    const fadeOutTime = 0.1; // 100ms fade out
+    const now = this.audioCtx.currentTime;
+
+    this.activeNodes.forEach(({ source, gain }) => {
+      try {
+        gain.gain.setValueAtTime(gain.gain.value, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + fadeOutTime);
+        source.stop(now + fadeOutTime);
+      } catch (e) {
+        // Source might already be stopped
+      }
+    });
+
+    this.activeNodes = [];
+    this.nextStartTime = now;
+  }
+
   clear() {
-    this.nextStartTime = 0;
+    this.stopAll();
   }
 }

@@ -197,17 +197,35 @@ export default function App() {
         }
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
       const source = audioCtxRef.current.createMediaStreamSource(stream);
+      
+      // Increase mic pickup
+      const inputGain = audioCtxRef.current.createGain();
+      inputGain.gain.value = 1.5; // 50% boost
+      
       inputAnalyserRef.current = audioCtxRef.current.createAnalyser();
-      source.connect(inputAnalyserRef.current);
+      source.connect(inputGain);
+      inputGain.connect(inputAnalyserRef.current);
       
       const workletNode = new AudioWorkletNode(audioCtxRef.current, 'beatrice-processor');
       processorRef.current = workletNode;
       
       workletNode.port.onmessage = (event) => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          const pcm = pcmToBase64(new Float32Array(event.data));
+        const msg = event.data;
+        if (msg.type === 'vad' && msg.isSpeaking) {
+          // Immediate yield on user speech
+          audioQueueRef.current?.clear();
+        }
+        
+        if (msg.type === 'audio' && wsRef.current?.readyState === WebSocket.OPEN) {
+          const pcm = pcmToBase64(new Float32Array(msg.data));
           wsRef.current.send(JSON.stringify({ audio: pcm }));
         }
       };

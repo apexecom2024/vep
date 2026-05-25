@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { WebSocketServer } from "ws";
 import dotenv from "dotenv";
 
@@ -136,6 +136,23 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
                 if (audio) ws.send(JSON.stringify({ type: 'audio', data: audio }));
                 if (text) ws.send(JSON.stringify({ type: 'text', data: text }));
                 
+                if (msg.toolCall) {
+                  const callIds: string[] = [];
+                  msg.toolCall.functionCalls.forEach((fc: any) => {
+                    console.log(`Model called tool: ${fc.name}`, fc.args);
+                    callIds.push(fc.id);
+                  });
+                  
+                  // Send dummy back to satisfy the session
+                  session.sendToolResponse({
+                    functionResponses: msg.toolCall.functionCalls.map((fc: any) => ({
+                      name: fc.name,
+                      response: { status: "received" },
+                      id: fc.id
+                    }))
+                  });
+                }
+                
                 if (msg.serverContent?.interrupted) {
                   ws.send(JSON.stringify({ type: 'interrupted' }));
                 }
@@ -163,6 +180,36 @@ REALISTIC HUMAN CONVERSATION PRINCIPLES:
               systemInstruction,
               inputAudioTranscription: {},
               outputAudioTranscription: {},
+              tools: [
+                {
+                  functionDeclarations: [
+                    {
+                      name: "sentiment_tracker",
+                      description: "Register the user's detected emotional state and vocal affect.",
+                      parameters: {
+                        type: Type.OBJECT,
+                        properties: {
+                          sentiment: { 
+                            type: Type.STRING, 
+                            description: "The detected sentiment (e.g., stressed, excited, sarcastic, annoyed, bored, happy, normal)." 
+                          }
+                        },
+                        required: ["sentiment"]
+                      }
+                    },
+                    {
+                      name: "interruption_handler",
+                      description: "Yield the floor gracefully when the user interrupts.",
+                      parameters: {
+                        type: Type.OBJECT,
+                        properties: {
+                          reason: { type: Type.STRING, description: "Minimal context on why yielding (e.g. user spoke, sudden turn shift)." }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
             },
           });
         }

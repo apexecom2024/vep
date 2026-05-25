@@ -7,9 +7,10 @@ import { ComputerView } from './components/ComputerView';
 import { ProfileView } from './components/ProfileView';
 import { HistoryView } from './components/HistoryView';
 import { ConversationDetailsView } from './components/ConversationDetailsView';
-import { initAuth, signIn, logout, createConversation } from './lib/firebase';
+import { initAuth, signIn, logout, createConversation, saveConversationMessage } from './lib/firebase';
 import { ViewState, User } from './types';
 import { pcmToBase64, base64ToPcm, AudioQueue } from './lib/audio';
+import processorUrl from './lib/beatrice-processor.js?url';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('auth');
@@ -18,11 +19,18 @@ export default function App() {
   const [isActive, setIsActive] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [agentResponse, setAgentResponse] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [inputVolume, setInputVolume] = useState(0);
   const [outputVolume, setOutputVolume] = useState(0);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   
+  useEffect(() => {
+    if (currentConversationId && agentResponse && user?.uid) {
+       saveConversationMessage(user.uid, currentConversationId, transcript, agentResponse);
+    }
+  }, [agentResponse]);
+
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<AudioQueue | null>(null);
@@ -113,14 +121,21 @@ export default function App() {
       const wsUrl = `${protocol}//${window.location.host}/ws/live`;
       wsRef.current = new WebSocket(wsUrl);
 
-      audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
-      await audioCtxRef.current.audioWorklet.addModule('/src/lib/beatrice-processor.js');
+      audioCtxRef.current = new AudioContext({ sampleRate: 16000 });
+      await audioCtxRef.current.audioWorklet.addModule(processorUrl);
       audioQueueRef.current = new AudioQueue(audioCtxRef.current);
       outputAnalyserRef.current = audioCtxRef.current.createAnalyser();
       outputAnalyserRef.current.connect(audioCtxRef.current.destination);
 
       wsRef.current.onopen = () => {
-        wsRef.current?.send(JSON.stringify({ type: 'start' }));
+        const config = {
+          name: localStorage.getItem('beatrice-name') || 'Beatrice',
+          voice: localStorage.getItem('beatrice-voice'),
+          language: localStorage.getItem('beatrice-language'),
+          bossName: localStorage.getItem('beatrice-boss-name'),
+          behavior: localStorage.getItem('beatrice-behavior'),
+        };
+        wsRef.current?.send(JSON.stringify({ type: 'start', config }));
       };
 
       wsRef.current.onmessage = (event) => {
@@ -129,9 +144,11 @@ export default function App() {
           audioQueueRef.current.enqueue(base64ToPcm(msg.data), outputAnalyserRef.current!);
         }
         if (msg.type === 'text') {
+           setIsProcessing(false);
            setAgentResponse(msg.data);
         }
         if (msg.type === 'transcript') {
+           setIsProcessing(true);
            setTranscript(msg.data);
 
            if (!currentConversationId && user?.uid) {
@@ -205,6 +222,7 @@ export default function App() {
             user={user!} 
             onNavigate={setView} 
             isActive={isActive} 
+            isProcessing={isProcessing}
             onToggleActive={() => setIsActive(!isActive)}
             transcript={transcript}
             agentResponse={agentResponse}

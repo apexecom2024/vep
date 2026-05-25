@@ -1,13 +1,27 @@
+/// <reference types="vite/client" />
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, serverTimestamp } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { getFirestore, doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { getDatabase, ref, push, set } from 'firebase/database';
+import { getStorage } from 'firebase/storage';
 import { User } from '../types';
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 //@ts-ignore
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
+export const db = getFirestore(app);
+export const rtdb = getDatabase(app);
+export const storage = getStorage(app);
 
 const provider = new GoogleAuthProvider();
 // Shared Workspace Scopes
@@ -90,15 +104,29 @@ const mapFirebaseUser = (user: FirebaseUser, token?: string): User => ({
 });
 
 export const createConversation = async (userId: string, type: 'voice' | 'video' | 'text', summary: string) => {
-  const conversationRef = doc(collection(db, `users/${userId}/conversations`));
-  const createdAt = serverTimestamp();
-  await setDoc(conversationRef, {
+  const conversationsRef = ref(rtdb, `users/${userId}/conversations`);
+  const newConversationRef = push(conversationsRef);
+  const conversationId = newConversationRef.key;
+  
+  if (!conversationId) throw new Error('Failed to generate conversation ID');
+  
+  const createdAt = Date.now();
+  await set(newConversationRef, {
     userId,
-    conversationId: conversationRef.id,
+    conversationId,
     type,
     summary,
     createdAt,
     updatedAt: createdAt
   });
-  return conversationRef.id;
+  return conversationId;
+};
+
+export const saveConversationMessage = async (userId: string, conversationId: string, transcript: string, agentResponse: string) => {
+  const messageRef = doc(collection(db, `users/${userId}/conversations/${conversationId}/messages`));
+  await setDoc(messageRef, {
+    transcript,
+    agentResponse,
+    createdAt: serverTimestamp()
+  });
 };

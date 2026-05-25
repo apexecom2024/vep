@@ -1,0 +1,6 @@
+{
+  "name": "Beatrice",
+  "description": "A high-performance voice assistant with Google Workspace integration and advanced neural processing capabilities.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

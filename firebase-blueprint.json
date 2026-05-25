@@ -1,0 +1,65 @@
+/**
+ * Beatrice System Blueprints
+ * Defines the core data models for Beatrice.
+ */
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about the authenticated Beatrice user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "lastActive": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email"]
+    },
+    "Conversation": {
+      "title": "Conversation History",
+      "description": "Stored interactions between the user and Beatrice.",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string" },
+        "userId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "lastMessage": { "type": "string" },
+        "type": { "type": "string", "enum": ["voice", "video", "text"] }
+      },
+      "required": ["conversationId", "userId"]
+    },
+    "Task": {
+      "title": "Beatrice Task",
+      "description": "Tasks managed by Beatrice, often synced with Google Tasks.",
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "archived"] },
+        "workspaceId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["taskId", "userId", "title"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Primary user profiles."
+    },
+    "/users/{userId}/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Interaction logs for each user."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User-specific tasks tracked by Beatrice."
+    }
+  }
+}

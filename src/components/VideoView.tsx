@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BeatriceOrb } from './BeatriceOrb';
-import { X, Camera, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { X, Mic, Video, VideoOff, RefreshCw } from 'lucide-react';
 import { ViewState } from '../types';
+import { motion } from 'motion/react';
 
 interface VideoViewProps {
   onNavigate: (view: ViewState) => void;
@@ -13,12 +13,12 @@ export const VideoView: React.FC<VideoViewProps> = ({ onNavigate, isActive, onTo
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
   useEffect(() => {
     const startCamera = async () => {
       try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: true });
         setStream(s);
         if (videoRef.current) {
           videoRef.current.srcObject = s;
@@ -33,91 +33,92 @@ export const VideoView: React.FC<VideoViewProps> = ({ onNavigate, isActive, onTo
     return () => {
       stream?.getTracks().forEach(track => track.stop());
     };
-  }, []);
+  }, [facingMode]);
 
   const toggleCamera = () => {
-    if (stream) {
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsCameraOff(!videoTrack.enabled);
-      }
-    }
-  };
-
-  const toggleMic = () => {
-    if (stream) {
-      const audioTrack = stream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMicMuted(!audioTrack.enabled);
-      }
-    }
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   return (
-    <div className="relative h-full bg-black overflow-hidden flex flex-col">
-      {/* Camera View */}
-      <div className="absolute inset-0 z-0">
+    <div className="flex flex-col h-full bg-black text-zinc-100 font-sans selection-none">
+      {/* HEADER */}
+      <header className="sticky top-0 w-full bg-black/95 backdrop-blur-md border-b border-zinc-900/80 px-6 py-4 flex items-center justify-between z-30">
+        <button onClick={toggleCamera} className="p-2 -ml-2 rounded-xl text-zinc-400 hover:text-lime-400 hover:bg-zinc-900/40 transition-all">
+          <RefreshCw className="w-6 h-6" />
+        </button>
+        <div className="text-center">
+            <h1 className="text-xl font-semibold tracking-wide text-lime-400">Video Call</h1>
+        </div>
+        <button onClick={() => onNavigate('hub')} className="p-2 -mr-2 rounded-xl text-zinc-400 hover:text-rose-500 hover:bg-zinc-900/40 transition-all">
+          <X className="w-6 h-6" />
+        </button>
+      </header>
+
+      {/* MAIN CAMERA */}
+      <main className="flex-1 w-full relative bg-zinc-950 overflow-hidden flex items-center justify-center">
         <video 
           ref={videoRef} 
           autoPlay 
           playsInline 
           muted 
-          className={`w-full h-full object-cover transition-opacity duration-500 ${isCameraOff ? 'opacity-0' : 'opacity-60'}`} 
+          className={`w-full h-full object-cover transition-transform duration-500 ${facingMode === 'user' ? 'scale-x-[-1]' : 'scale-x-1'} ${isCameraOff ? 'hidden' : ''}`} 
         />
         {isCameraOff && (
           <div className="absolute inset-0 flex items-center justify-center bg-zinc-950">
-             <VideoOff className="w-16 h-16 text-zinc-800" />
+            <div className="relative w-40 h-40 flex items-center justify-center">
+              <motion.div
+                className="absolute w-full h-full rounded-full border border-lime-500/30 bg-lime-500/5"
+                animate={{ scale: [0.6, 1.6], opacity: [0.8, 0] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              />
+              <motion.div
+                className="absolute w-full h-full rounded-full border border-lime-500/20 bg-lime-500/5"
+                animate={{ scale: [0.6, 1.6], opacity: [0.8, 0] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear", delay: 1.5 }}
+              />
+              <div className="relative w-16 h-16 rounded-full bg-zinc-900 border border-lime-500/40 flex items-center justify-center shadow-lg shadow-lime-500/10">
+                <VideoOff className="w-8 h-8 text-lime-400/80" />
+              </div>
+            </div>
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Overlay Content */}
-      <div className="relative z-10 flex flex-col h-full p-6">
-        <div className="flex justify-between items-center">
-          <div className="bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-lime-400">Live Video Session</p>
-          </div>
-          <button 
-            onClick={() => onNavigate('hub')}
-            className="p-3 rounded-full bg-black/40 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5 text-white" />
-          </button>
-        </div>
-
-        <div className="mt-auto mb-12 flex flex-col items-center">
-            <div className="mb-4">
-              <BeatriceOrb isActive={isActive} onClick={onToggleActive} size="sm" />
-            </div>
-            <p className="text-xs font-medium text-white/70 mb-8">Beatrice is analyzing the feed...</p>
-            
-            {/* Call Controls */}
-            <div className="flex gap-6 items-center">
-              <button 
-                onClick={toggleMic}
-                className={`p-4 rounded-full border backdrop-blur-xl transition-all ${isMicMuted ? 'bg-red-500/20 border-red-500/50 text-red-500' : 'bg-white/10 border-white/20 text-white'}`}
-              >
-                {isMicMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-              </button>
-              
-              <button 
-                 onClick={onToggleActive}
-                 className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isActive ? 'bg-red-500 shadow-lg shadow-red-500/30' : 'bg-lime-500 shadow-lg shadow-lime-500/30'}`}
-              >
-                {isActive ? <X className="w-8 h-8 text-white" /> : <Mic className="w-8 h-8 text-black" />}
-              </button>
-
-              <button 
-                onClick={toggleCamera}
-                className={`p-4 rounded-full border backdrop-blur-xl transition-all ${isCameraOff ? 'bg-red-500/20 border-red-500/50 text-red-500' : 'bg-white/10 border-white/20 text-white'}`}
-              >
-                {isCameraOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-              </button>
-            </div>
-        </div>
-      </div>
+      {/* FOOTER CONTROLS */}
+      <footer className="sticky bottom-0 w-full bg-black/95 backdrop-blur-md border-t border-zinc-900/80 py-6 px-4 flex justify-center items-center gap-4 z-20">
+        <button 
+          onClick={onToggleActive}
+          className={`flex-1 max-w-[160px] py-3.5 px-6 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg ${isActive ? 'bg-zinc-900 text-rose-500 border border-rose-500/50 hover:bg-zinc-850' : 'bg-lime-400 text-black hover:bg-lime-300 shadow-lime-400/10'}`}
+        >
+          {isActive ? (
+            <>
+              <div className="flex items-center gap-0.5 h-5 overflow-hidden">
+                {[1, 2, 3].map((i) => (
+                    <motion.div
+                        key={i}
+                        className="w-1 bg-rose-500 rounded-sm"
+                        animate={{ height: [4, 16, 4] }}
+                        transition={{ duration: 0.5 + i * 0.1, repeat: Infinity }}
+                    />
+                ))}
+              </div>
+              <span>Stop</span>
+            </>
+          ) : (
+            <>
+              <Mic className="w-5 h-5" />
+              <span>Start</span>
+            </>
+          )}
+        </button>
+        <button 
+          onClick={() => setIsCameraOff(prev => !prev)}
+          className={`flex-1 max-w-[160px] py-3.5 px-6 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg ${isCameraOff ? 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-lime-400' : 'bg-lime-400 text-black hover:bg-lime-300'}`}
+        >
+          <Video className="w-5 h-5" />
+          <span>{isCameraOff ? 'Video Off' : 'Video On'}</span>
+        </button>
+      </footer>
     </div>
   );
 };

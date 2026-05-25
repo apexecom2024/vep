@@ -60,15 +60,16 @@ export const HubView: React.FC<HubViewProps> = ({
       <footer className="sticky bottom-0 z-20 grid grid-cols-2 gap-4 p-6 bg-black/80 backdrop-blur-md border-t border-zinc-900">
         <button 
           onClick={onToggleActive}
-          className={`py-4 rounded-full font-bold text-sm flex items-center justify-center gap-2 ${isActive ? 'bg-red-500' : 'bg-lime-400 text-black'}`}
+          className={`py-4 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${isActive ? 'bg-red-500' : 'bg-lime-400 text-black'}`}
         >
           {isActive && (
-            <div className="flex items-end gap-0.5 h-4">
-              {Array.from({ length: 3 }).map((_, i) => (
+            <div className="flex items-center gap-0.5 h-4 overflow-hidden">
+              {Array.from({ length: 5 }).map((_, i) => (
                 <motion.div
                   key={i}
-                  className="w-0.5 bg-black"
-                  animate={{ height: Math.max(4, (inputVolume / 100) * 16) }}
+                  className="w-1 bg-black/60 rounded-sm"
+                  animate={{ height: [4, 12, 4] }}
+                  transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
                 />
               ))}
             </div>

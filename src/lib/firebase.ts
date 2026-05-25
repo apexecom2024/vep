@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, collection, serverTimestamp } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { User } from '../types';
 
@@ -89,4 +89,16 @@ const mapFirebaseUser = (user: FirebaseUser, token?: string): User => ({
   accessToken: token
 });
 
-export const getAccessToken = () => cachedAccessToken;
+export const createConversation = async (userId: string, type: 'voice' | 'video' | 'text', summary: string) => {
+  const conversationRef = doc(collection(db, `users/${userId}/conversations`));
+  const createdAt = serverTimestamp();
+  await setDoc(conversationRef, {
+    userId,
+    conversationId: conversationRef.id,
+    type,
+    summary,
+    createdAt,
+    updatedAt: createdAt
+  });
+  return conversationRef.id;
+};

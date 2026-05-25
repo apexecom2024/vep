@@ -101,7 +101,7 @@ async function startServer() {
               speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } }, // 'Audi' requested - using Zephyr or Puck for deep/mature feel
               },
-              systemInstruction: "You are Beatrice, a sophisticated AI voice assistant. You are helpful, professional, and empathetic. You have access to Google Workspace through the user's account. Use the 'Audi' voice style (mature, steady).",
+              systemInstruction: "You are Beatrice, a sophisticated AI voice assistant. You are helpful, professional, and empathetic. You have access to Google Workspace through the user's account. Use the 'Audi' voice style (mature, steady). Always start the conversation by warmly greeting the user as soon as the session begins.",
               inputAudioTranscription: {},
               outputAudioTranscription: {},
             },

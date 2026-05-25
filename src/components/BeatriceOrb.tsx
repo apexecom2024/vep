@@ -26,24 +26,28 @@ export const BeatriceOrb: React.FC<BeatriceOrbProps> = ({ isActive, onClick, siz
       
       {/* Audio Visualizer Bars */}
       {isActive && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          {Array.from({ length: 24 }).map((_, i) => (
+        <motion.div 
+          className="absolute inset-0 flex items-center justify-center"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+        >
+          {Array.from({ length: 16 }).map((_, i) => (
             <motion.div
               key={i}
               className="absolute w-1 bg-lime-400 rounded-full"
               style={{
                 height: 4,
-                transformOrigin: '50% 112px',
-                transform: `rotate(${i * (360 / 24)}deg) translateY(-112px)`,
+                transformOrigin: '50% 50%',
+                transform: `rotate(${i * (360 / 16)}deg) translateY(-60px)`, // Within the orb
               }}
               animate={{
                 height: Math.max(4, 4 + volume / 2),
-                opacity: 0.2 + (volume / 200),
+                opacity: 0.4 + (volume / 200),
               }}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             />
           ))}
-        </div>
+        </motion.div>
       )}
       
       {/* Central Orb */}

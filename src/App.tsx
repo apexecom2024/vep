@@ -7,7 +7,7 @@ import { ComputerView } from './components/ComputerView';
 import { ProfileView } from './components/ProfileView';
 import { HistoryView } from './components/HistoryView';
 import { ConversationDetailsView } from './components/ConversationDetailsView';
-import { initAuth, signIn, logout } from './lib/firebase';
+import { initAuth, signIn, logout, createConversation } from './lib/firebase';
 import { ViewState, User } from './types';
 import { pcmToBase64, base64ToPcm, AudioQueue } from './lib/audio';
 
@@ -21,6 +21,7 @@ export default function App() {
   const [inputVolume, setInputVolume] = useState(0);
   const [outputVolume, setOutputVolume] = useState(0);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -132,6 +133,26 @@ export default function App() {
         }
         if (msg.type === 'transcript') {
            setTranscript(msg.data);
+
+           if (!currentConversationId && user?.uid) {
+             (async () => {
+               try {
+                 const res = await fetch('/api/gemini/generate', {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({
+                     prompt: `Generate a short 3-5 word title for this conversation based on this first user message: "${msg.data}"`,
+                     systemInstruction: "You are a title generator."
+                   }),
+                 });
+                 const data = await res.json();
+                 const id = await createConversation(user.uid, 'voice', data.text || 'New Conversation');
+                 setCurrentConversationId(id);
+               } catch (err) {
+                 console.error('Failed to create conversation:', err);
+               }
+             })();
+           }
         }
         if (msg.type === 'interrupted') {
           audioQueueRef.current?.clear();
@@ -169,6 +190,7 @@ export default function App() {
     wsRef.current = null;
     audioCtxRef.current = null;
     processorRef.current = null;
+    setCurrentConversationId(null);
   };
 
   const renderView = () => {

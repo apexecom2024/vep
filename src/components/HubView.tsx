@@ -1,40 +1,38 @@
 import React from 'react';
+import { Menu, User as UserIcon } from 'lucide-react';
+import { motion } from 'motion/react';
 import { BeatriceOrb } from './BeatriceOrb';
-import { LogOut } from 'lucide-react';
 import { User, ViewState } from '../types';
 
 interface HubViewProps {
   user: User;
   onNavigate: (view: ViewState) => void;
-  onLogout: () => void;
   isActive: boolean;
   onToggleActive: () => void;
   transcript: string;
   agentResponse: string;
+  inputVolume: number;
+  outputVolume: number;
 }
 
 export const HubView: React.FC<HubViewProps> = ({ 
-  user, onNavigate, onLogout, isActive, onToggleActive, transcript, agentResponse 
+  user, onNavigate, isActive, onToggleActive, transcript, agentResponse, inputVolume, outputVolume
 }) => {
   return (
-    <div className="flex flex-col h-full bg-black text-white p-6 relative">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-12">
-        <div className="flex items-center gap-3">
-          {user.photoURL && <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full border border-lime-500/30" />}
-          <div>
-            <h2 className="text-sm font-medium text-zinc-400">Welcome</h2>
-            <p className="text-lime-400 font-bold">{user.displayName || 'Beatrice User'}</p>
-          </div>
-        </div>
-        <button onClick={onLogout} className="p-2 rounded-full hover:bg-zinc-900 transition-colors">
-          <LogOut className="w-5 h-5 text-zinc-500" />
+    <div className="flex flex-col h-full bg-black text-white relative">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-20 flex justify-between items-center p-6 bg-black/80 backdrop-blur-md">
+        <button onClick={() => onNavigate('history')} className="p-2 text-zinc-400 hover:text-white">
+          <Menu className="w-6 h-6" />
         </button>
-      </div>
+        <button onClick={() => onNavigate('profile')} className="p-2 text-zinc-400 hover:text-white">
+          {user.photoURL ? <img src={user.photoURL} className="w-8 h-8 rounded-full" /> : <UserIcon className="w-6 h-6" />}
+        </button>
+      </header>
 
       {/* Main Assistant Area */}
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <BeatriceOrb isActive={isActive} onClick={onToggleActive} />
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <BeatriceOrb isActive={isActive} onClick={onToggleActive} volume={outputVolume} />
         
         <div className="mt-12 text-center w-full max-w-sm">
           <p className={`text-xs font-mono uppercase tracking-widest transition-colors duration-500 ${isActive ? 'text-lime-400' : 'text-zinc-600'}`}>
@@ -58,21 +56,32 @@ export const HubView: React.FC<HubViewProps> = ({
         </div>
       </div>
 
-      {/* Persistent Navigation */}
-      <div className="grid grid-cols-2 gap-4 mt-auto pt-8">
+      {/* Footer Navigation */}
+      <footer className="sticky bottom-0 z-20 grid grid-cols-2 gap-4 p-6 bg-black/80 backdrop-blur-md border-t border-zinc-900">
+        <button 
+          onClick={onToggleActive}
+          className={`py-4 rounded-full font-bold text-sm flex items-center justify-center gap-2 ${isActive ? 'bg-red-500' : 'bg-lime-400 text-black'}`}
+        >
+          {isActive && (
+            <div className="flex items-end gap-0.5 h-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="w-0.5 bg-black"
+                  animate={{ height: Math.max(4, (inputVolume / 100) * 16) }}
+                />
+              ))}
+            </div>
+          )}
+          {isActive ? 'Stop' : 'Start'}
+        </button>
         <button 
           onClick={() => onNavigate('video')}
-          className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-3xl flex flex-col items-center gap-2 hover:border-lime-500/30 transition-all active:scale-95"
+          className="bg-zinc-800 py-4 rounded-full font-bold text-sm"
         >
-          <span className="text-xs font-semibold uppercase tracking-widest text-zinc-400">Video Call</span>
+          Video
         </button>
-        <button 
-          onClick={() => onNavigate('computer')}
-          className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-3xl flex flex-col items-center gap-2 hover:border-lime-500/30 transition-all active:scale-95"
-        >
-          <span className="text-xs font-semibold uppercase tracking-widest text-zinc-400">Operator</span>
-        </button>
-      </div>
+      </footer>
     </div>
   );
 };

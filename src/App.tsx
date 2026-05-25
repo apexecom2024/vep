@@ -4,6 +4,9 @@ import { AuthView } from './components/AuthView';
 import { HubView } from './components/HubView';
 import { VideoView } from './components/VideoView';
 import { ComputerView } from './components/ComputerView';
+import { ProfileView } from './components/ProfileView';
+import { HistoryView } from './components/HistoryView';
+import { ConversationDetailsView } from './components/ConversationDetailsView';
 import { initAuth, signIn, logout } from './lib/firebase';
 import { ViewState, User } from './types';
 import { pcmToBase64, base64ToPcm, AudioQueue } from './lib/audio';
@@ -15,11 +18,43 @@ export default function App() {
   const [isActive, setIsActive] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [agentResponse, setAgentResponse] = useState('');
+  const [inputVolume, setInputVolume] = useState(0);
+  const [outputVolume, setOutputVolume] = useState(0);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<AudioQueue | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const processorRef = useRef<AudioWorkletNode | null>(null);
+  const inputAnalyserRef = useRef<AnalyserNode | null>(null);
+  const outputAnalyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const updateVolumes = () => {
+      if (inputAnalyserRef.current) {
+        const dataArray = new Uint8Array(inputAnalyserRef.current.frequencyBinCount);
+        inputAnalyserRef.current.getByteFrequencyData(dataArray);
+        setInputVolume(dataArray.reduce((a, b) => a + b) / dataArray.length);
+      }
+      if (outputAnalyserRef.current) {
+        const dataArray = new Uint8Array(outputAnalyserRef.current.frequencyBinCount);
+        outputAnalyserRef.current.getByteFrequencyData(dataArray);
+        setOutputVolume(dataArray.reduce((a, b) => a + b) / dataArray.length);
+      }
+      animationFrameRef.current = requestAnimationFrame(updateVolumes);
+    };
+    if (isActive) {
+      animationFrameRef.current = requestAnimationFrame(updateVolumes);
+    } else {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      setInputVolume(0);
+      setOutputVolume(0);
+    }
+    return () => {
+       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    }
+  }, [isActive]);
 
   useEffect(() => {
     const unsubscribe = initAuth(
@@ -56,6 +91,11 @@ export default function App() {
     setView('auth');
   };
 
+  const handleOpenConversation = (id: string) => {
+    setSelectedConversationId(id);
+    setView('details');
+  };
+
   // Live Assistant Logic
   useEffect(() => {
     if (isActive) {
@@ -72,8 +112,11 @@ export default function App() {
       const wsUrl = `${protocol}//${window.location.host}/ws/live`;
       wsRef.current = new WebSocket(wsUrl);
 
-      audioCtxRef.current = new AudioContext({ sampleRate: 16000 });
+      audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
+      await audioCtxRef.current.audioWorklet.addModule('/src/lib/beatrice-processor.js');
       audioQueueRef.current = new AudioQueue(audioCtxRef.current);
+      outputAnalyserRef.current = audioCtxRef.current.createAnalyser();
+      outputAnalyserRef.current.connect(audioCtxRef.current.destination);
 
       wsRef.current.onopen = () => {
         wsRef.current?.send(JSON.stringify({ type: 'start' }));
@@ -82,7 +125,7 @@ export default function App() {
       wsRef.current.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.type === 'audio' && audioQueueRef.current) {
-          audioQueueRef.current.enqueue(base64ToPcm(msg.data));
+          audioQueueRef.current.enqueue(base64ToPcm(msg.data), outputAnalyserRef.current!);
         }
         if (msg.type === 'text') {
            setAgentResponse(msg.data);
@@ -98,17 +141,20 @@ export default function App() {
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const source = audioCtxRef.current.createMediaStreamSource(stream);
-      processorRef.current = audioCtxRef.current.createScriptProcessor(4096, 1, 1);
+      inputAnalyserRef.current = audioCtxRef.current.createAnalyser();
+      source.connect(inputAnalyserRef.current);
       
-      source.connect(processorRef.current);
-      processorRef.current.connect(audioCtxRef.current.destination);
-
-      processorRef.current.onaudioprocess = (e) => {
+      const workletNode = new AudioWorkletNode(audioCtxRef.current, 'beatrice-processor');
+      processorRef.current = workletNode;
+      
+      workletNode.port.onmessage = (event) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-          const pcm = pcmToBase64(e.inputBuffer.getChannelData(0));
+          const pcm = pcmToBase64(event.data);
           wsRef.current.send(JSON.stringify({ audio: pcm }));
         }
       };
+      
+      inputAnalyserRef.current.connect(workletNode);
 
     } catch (err) {
       console.error("Assistant Error:", err);
@@ -136,11 +182,12 @@ export default function App() {
           <HubView 
             user={user!} 
             onNavigate={setView} 
-            onLogout={handleLogout} 
             isActive={isActive} 
             onToggleActive={() => setIsActive(!isActive)}
             transcript={transcript}
             agentResponse={agentResponse}
+            inputVolume={inputVolume}
+            outputVolume={outputVolume}
           />
         );
       case 'video':
@@ -153,6 +200,12 @@ export default function App() {
         );
       case 'computer':
         return <ComputerView user={user!} onNavigate={setView} />;
+      case 'profile':
+        return <ProfileView user={user!} onNavigate={setView} onLogout={handleLogout} />;
+      case 'history':
+        return <HistoryView user={user!} onNavigate={setView} onOpenConversation={handleOpenConversation} />;
+      case 'details':
+        return <ConversationDetailsView user={user!} conversationId={selectedConversationId!} onNavigate={setView} />;
       default:
         return <AuthView onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
     }

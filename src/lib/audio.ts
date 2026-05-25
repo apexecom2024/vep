@@ -38,13 +38,13 @@ export class AudioQueue {
     this.audioCtx = audioCtx;
   }
 
-  enqueue(pcmData: Float32Array) {
-    const buffer = this.audioCtx.createBuffer(1, pcmData.length, 16000);
+  enqueue(pcmData: Float32Array, outputNode: AudioNode = this.audioCtx.destination) {
+    const buffer = this.audioCtx.createBuffer(1, pcmData.length, this.audioCtx.sampleRate);
     buffer.getChannelData(0).set(pcmData);
 
     const source = this.audioCtx.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.audioCtx.destination);
+    source.connect(outputNode);
 
     const currentTime = this.audioCtx.currentTime;
     if (this.nextStartTime < currentTime) {

@@ -1,4 +1,4 @@
-export type ViewState = 'auth' | 'hub' | 'video' | 'computer';
+export type ViewState = 'auth' | 'hub' | 'video' | 'computer' | 'profile' | 'history' | 'details';
 
 export interface User {
   uid: string;

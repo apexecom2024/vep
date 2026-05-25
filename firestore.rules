@@ -23,14 +23,11 @@ service cloud.firestore {
     match /users/{userId} {
       function isValidUser(data) {
         return data.userId == request.auth.uid 
-          && data.email is string
-          && data.displayName is string;
+          && data.email is string;
       }
 
       allow get: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'lastActive']);
+      allow write: if isOwner(userId) && isValidUser(request.resource.data);
     }
 
     // Conversations Subcollection Rules
